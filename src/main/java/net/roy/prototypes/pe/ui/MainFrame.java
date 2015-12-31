@@ -99,7 +99,7 @@ public class MainFrame extends JFrame {
 
     private void switchOrganizationManageForm() {
         if (organizationStructureManageForm==null) {
-            organizationStructureManageForm=new DepartmentManageForm(departmentManager);
+            organizationStructureManageForm=new DepartmentManageForm(departmentManager,privilegeManager,userManager);
         }
         setContentPane(organizationStructureManageForm.getPanel());
         organizationStructureManageForm.reload();
@@ -164,7 +164,7 @@ public class MainFrame extends JFrame {
         jobPersister.setTemplate(template);
         UserPersister userPersister=new UserPersister();
         userPersister.setTemplate(template);
-        userPersister.setTranscationManager(transactionManager);
+        userPersister.setTransactionManager(transactionManager);
         PrivilegePersister privilegePersister=new PrivilegePersister();
         privilegePersister.setTemplate(template);
         privilegePersister.setTransactionManager(transactionManager);

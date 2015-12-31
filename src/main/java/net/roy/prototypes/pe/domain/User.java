@@ -79,4 +79,9 @@ public class User {
     public void setIdCardNo(String idCardNo) {
         this.idCardNo = idCardNo;
     }
+
+    @Override
+    public String toString() {
+        return name;
+    }
 }

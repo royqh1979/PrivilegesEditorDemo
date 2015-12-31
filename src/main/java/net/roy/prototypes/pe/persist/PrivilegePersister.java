@@ -1,6 +1,7 @@
 package net.roy.prototypes.pe.persist;
 
 import net.roy.prototypes.pe.domain.Department;
+import net.roy.prototypes.pe.domain.Job;
 import net.roy.prototypes.pe.domain.Privilege;
 import org.springframework.jdbc.core.*;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -13,7 +14,9 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by Roy on 2015/12/23.
@@ -168,5 +171,56 @@ public class PrivilegePersister {
                         return departmentList.size();
                     }
                 });
+    }
+
+    public List<Privilege> listJobPrivileges(Department department, Job job) {
+        return template.query("select A.* from privilege A join job_privilege B on A.id = B.privilege_id where B.job_id=?",ps->{
+            ps.setLong(1,job.getId());
+        },PRIVILEGE_ROW_MAPPER);
+    }
+
+    public List<Privilege> listNonJobPrivileges(Department department, Job job) {
+        return template.query("select * from privilege where id in (select privilege_id from department_privilege where department_id=?" +
+                        " except select privilege_id from job_privilege where job_id=?)",
+                ps->{
+                    ps.setLong(1, department.getId());
+                    ps.setLong(2,job.getId());
+                },PRIVILEGE_ROW_MAPPER);
+    }
+
+    public void updateJobPrivileges(Department department, Job job, List<Privilege> assignList) {
+        TransactionDefinition definition=new DefaultTransactionDefinition();
+        TransactionStatus status=transactionManager.getTransaction(definition);
+        try {
+            template.update("delete from job_privilege where job_id=?",ps->{
+                ps.setLong(1,job.getId());
+            });
+            List<String> privilegesIds=assignList.stream().map(privilege->Long.toString(privilege.getId())).distinct().collect(Collectors.toList());
+
+            String query="select * from privilege where id in ("
+                    +String.join(",",privilegesIds)
+                    +") and id in (select privilege_id from department_privilege where department_id=?) ";
+            List<Privilege> privileges=template.query(query,ps->{
+                ps.setLong(1,department.getId());
+            },PRIVILEGE_ROW_MAPPER);
+
+            template.batchUpdate("insert into job_privilege(job_id, privilege_id) VALUES (?,?)", new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    Privilege privilege=privileges.get(i);
+                    ps.setLong(1,job.getId());
+                    ps.setLong(2,privilege.getId());
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return privileges.size();
+                }
+            });
+            transactionManager.commit(status);
+        } catch(RuntimeException e) {
+            transactionManager.rollback(status);
+            throw e;
+        }
     }
 }

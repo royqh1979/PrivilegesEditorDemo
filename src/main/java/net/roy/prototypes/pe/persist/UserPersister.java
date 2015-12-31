@@ -1,6 +1,7 @@
 package net.roy.prototypes.pe.persist;
 
 import net.roy.prototypes.pe.domain.Department;
+import net.roy.prototypes.pe.domain.Job;
 import net.roy.prototypes.pe.domain.Privilege;
 import net.roy.prototypes.pe.domain.User;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
@@ -15,13 +16,14 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.sql.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by Roy on 2015/12/26.
  */
 public class UserPersister {
     private JdbcTemplate template;
-    private PlatformTransactionManager transcationManager;
+    private PlatformTransactionManager transactionManager;
     public static final RowMapper<User> USER_ROW_MAPPER =(rs, rowNum) -> {
         return new User(rs.getLong("id"),
                 rs.getString("account"),
@@ -47,13 +49,13 @@ public class UserPersister {
 
     public void create(User user, List<Department> departmentList){
         TransactionDefinition definition=new DefaultTransactionDefinition();
-        TransactionStatus status=transcationManager.getTransaction(definition);
+        TransactionStatus status= transactionManager.getTransaction(definition);
         try {
             createUser(user);
             setUserDepartments(user, departmentList);
-            transcationManager.commit(status);
+            transactionManager.commit(status);
         } catch (RuntimeException e) {
-            transcationManager.rollback(status);
+            transactionManager.rollback(status);
             throw e;
         }
     }
@@ -93,15 +95,15 @@ public class UserPersister {
 
     public void remove(User user) {
         TransactionDefinition definition=new DefaultTransactionDefinition();
-        TransactionStatus status=transcationManager.getTransaction(definition);
+        TransactionStatus status= transactionManager.getTransaction(definition);
         try {
             removeUserDepartments(user);
             removeUserJobs(user);
             removeUserPrivileges(user);
             removeUser(user);
-            transcationManager.commit(status);
+            transactionManager.commit(status);
         } catch (RuntimeException e) {
-            transcationManager.rollback(status);
+            transactionManager.rollback(status);
         }
     }
 
@@ -127,8 +129,8 @@ public class UserPersister {
         });
     }
 
-    public void setTranscationManager(PlatformTransactionManager transcationManager) {
-        this.transcationManager = transcationManager;
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
     }
 
     public int countUserInDepartment(Department dept) {
@@ -174,16 +176,16 @@ public class UserPersister {
 
     public void updateDepartments(User user, List<Department> departmentList) {
         TransactionDefinition definition=new DefaultTransactionDefinition();
-        TransactionStatus status=transcationManager.getTransaction(definition);
+        TransactionStatus status= transactionManager.getTransaction(definition);
 
         try {
             template.update("delete from department_user where user_id=?",ps->{
                 ps.setLong(1,user.getId());
             });
             setUserDepartments(user, departmentList);
-            transcationManager.commit(status);
+            transactionManager.commit(status);
         } catch (RuntimeException e) {
-            transcationManager.rollback(status);
+            transactionManager.rollback(status);
             throw e;
         }
     }
@@ -193,5 +195,55 @@ public class UserPersister {
                 ps->{
                     ps.setLong(1,department.getId());
                 },USER_ROW_MAPPER);
+    }
+
+    public List<User> listJobUsers(Department department, Job job) {
+        return template.query("select A.* from User A join user_job B on A.id=B.user_id where B.job_id=?",ps->{
+            ps.setLong(1,job.getId());
+        },USER_ROW_MAPPER);
+    }
+
+    public List<User> listNonJobUsers(Department department, Job job) {
+        return template.query("select * from user  where id in (select user_id from department_user where department_id=? " +
+                "except select user_id from user_job where job_id=?)"
+                ,ps->{
+            ps.setLong(1,department.getId());
+            ps.setLong(2,job.getId());
+        },USER_ROW_MAPPER);    }
+
+    public void updateJobUsers(Department department, Job job, List<User> assignList) {
+        TransactionDefinition definition=new DefaultTransactionDefinition();
+        TransactionStatus status=transactionManager.getTransaction(definition);
+        try {
+            template.update("delete from user_job where job_id=?",ps->{
+                ps.setLong(1,job.getId());
+            });
+            List<String> userIds=assignList.stream().map(privilege->Long.toString(privilege.getId())).distinct().collect(Collectors.toList());
+
+            String query="select * from user where id in ("
+                    +String.join(",",userIds)
+                    +") and id in (select user_id from department_user where department_id=?) ";
+            List<User> users=template.query(query,ps->{
+                ps.setLong(1,department.getId());
+            },USER_ROW_MAPPER);
+
+            template.batchUpdate("insert into user_job(job_id, user_id) VALUES (?,?)", new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    User user=users.get(i);
+                    ps.setLong(1,job.getId());
+                    ps.setLong(2, user.getId());
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return users.size();
+                }
+            });
+            transactionManager.commit(status);
+        } catch(RuntimeException e) {
+            transactionManager.rollback(status);
+            throw e;
+        }
     }
 }

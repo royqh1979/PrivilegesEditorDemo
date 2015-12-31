@@ -75,4 +75,16 @@ public class PrivilegeManager {
     public void setDepartmentsHavingPrivilege(Privilege privilege, List<Department> departmentList) {
         privilegePersister.saveDepartmentsHavingPrivilege(privilege,departmentList);
     }
+
+    public List<Privilege> listJobPrivileges(Department department, Job job) {
+        return privilegePersister.listJobPrivileges(department,job);
+    }
+
+    public List<Privilege> listNonJobPrivileges(Department department, Job job) {
+        return privilegePersister.listNonJobPrivileges(department,job);
+    }
+
+    public void updateJobPrivileges(Department department, Job job, List<Privilege> assignList) {
+        privilegePersister.updateJobPrivileges(department,job,assignList);
+    }
 }

@@ -46,4 +46,16 @@ public class UserManager {
     public void updateDepartments(User user, List<Department> departmentList) {
         userPersister.updateDepartments(user,departmentList);
     }
+
+    public List<User> listJobUsers(Department department, Job job) {
+        return userPersister.listJobUsers(department,job);
+    }
+
+    public List<User> listNonJobUsers(Department department, Job job) {
+        return userPersister.listNonJobUsers(department,job);
+    }
+
+    public void updateJobUsers(Department department, Job job, List<User> assignList) {
+        userPersister.updateJobUsers(department,job,assignList);
+    }
 }

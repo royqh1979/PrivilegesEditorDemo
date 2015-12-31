@@ -1,8 +1,6 @@
 package net.roy.prototypes.pe.ui;
 
-import net.roy.prototypes.pe.domain.Department;
-import net.roy.prototypes.pe.domain.DepartmentManager;
-import net.roy.prototypes.pe.domain.Privilege;
+import net.roy.prototypes.pe.domain.*;
 import net.roy.prototypes.pe.ui.model.DepartmentJobListModel;
 import net.roy.prototypes.pe.ui.model.OrganizationTreeModel;
 import net.roy.prototypes.pe.ui.model.PrivilegeListModel;
@@ -34,7 +32,6 @@ public class DepartmentManageForm {
     private JToolBar organizationTreeToolbar;
     private JList lstJobs;
     private JButton btnAddJob;
-    private JTabbedPane tabbedPane2;
     private JTextField txtJobName;
     private JButton btnRemoveJob;
     private JList lstDepartmentPrivileges;
@@ -42,14 +39,22 @@ public class DepartmentManageForm {
     private JButton btnAddPrivilege;
     private JButton btnRemovePrivilege;
     private JTable tblUsers;
+    private ListAssignForm<Privilege> privilegeAssignForm;
+    private ListAssignForm<User> userAssignForm;
+    private JButton btnUpdateJobPrivileges;
+    private JButton btnUpdateJobUsers;
 
     private UserTableModel tblUsersModel;
 
     private DepartmentManager departmentManager;
+    private PrivilegeManager privilegeManager;
+    private UserManager userManager;
     private JPopupMenu popupMenu;
 
-    public DepartmentManageForm(DepartmentManager departmentManager) {
+    public DepartmentManageForm(DepartmentManager departmentManager,PrivilegeManager privilegeManager, UserManager userManager) {
         this.departmentManager = departmentManager;
+        this.privilegeManager=privilegeManager;
+        this.userManager=userManager;
 
         initOrganizationTree(departmentManager);
 
@@ -70,12 +75,19 @@ public class DepartmentManageForm {
 
         lstJobs.addListSelectionListener(e -> {
             if (lstJobs.getSelectedValue() == null) {
+                txtJobName.setText("");
                 txtJobName.setEnabled(false);
                 btnRemoveJob.setEnabled(false);
+                privilegeAssignForm.clear();
+                userAssignForm.clear();
             } else {
+                Job job=(Job)lstJobs.getSelectedValue();
+                Department department=(Department) (organizationTree.getSelectionPath().getLastPathComponent());
                 txtJobName.setEnabled(true);
-                txtJobName.setText(lstJobs.getSelectedValue().toString());
+                txtJobName.setText(job.toString());
                 btnRemoveJob.setEnabled(true);
+                privilegeAssignForm.init(privilegeManager.listJobPrivileges(department,job),privilegeManager.listNonJobPrivileges(department,job));
+                userAssignForm.init(userManager.listJobUsers(department,job),userManager.listNonJobUsers(department,job));
             }
         });
 
@@ -116,6 +128,21 @@ public class DepartmentManageForm {
 
         tblUsersModel=new UserTableModel();
         tblUsers.setModel(tblUsersModel);
+
+        btnUpdateJobPrivileges.addActionListener(this::onUpdateJobPrivileges);
+        btnUpdateJobUsers.addActionListener(this::onUpdateJobUsers);
+    }
+
+    private void onUpdateJobUsers(ActionEvent actionEvent) {
+        Job job=(Job)lstJobs.getSelectedValue();
+        Department department=(Department) (organizationTree.getSelectionPath().getLastPathComponent());
+        userManager.updateJobUsers(department,job,userAssignForm.getAssignList());
+    }
+
+    private void onUpdateJobPrivileges(ActionEvent actionEvent) {
+        Job job=(Job)lstJobs.getSelectedValue();
+        Department department=(Department) (organizationTree.getSelectionPath().getLastPathComponent());
+        privilegeManager.updateJobPrivileges(department,job,privilegeAssignForm.getAssignList());
     }
 
     private void initPopupMenu() {
