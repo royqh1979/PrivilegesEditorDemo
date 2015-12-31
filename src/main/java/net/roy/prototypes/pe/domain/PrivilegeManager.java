@@ -58,4 +58,21 @@ public class PrivilegeManager {
     public void setUserPersister(UserPersister userPersister) {
         this.userPersister = userPersister;
     }
+
+    public List<Department> listDepartmentsHavingPrivilege(Privilege privilege) {
+        return privilegePersister.listDepartmentsHavingPrivilege(privilege);
+    }
+
+    public void update(Privilege privilege) {
+        privilegePersister.update(privilege);
+    }
+
+    public void updateDepartmentsHavingPrivilege(Privilege privilege, List<Department> departmentList) {
+        privilegePersister.updateDepartmentsHavingPrivilege(privilege,departmentList);
+
+    }
+
+    public void setDepartmentsHavingPrivilege(Privilege privilege, List<Department> departmentList) {
+        privilegePersister.saveDepartmentsHavingPrivilege(privilege,departmentList);
+    }
 }

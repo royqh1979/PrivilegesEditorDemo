@@ -1,14 +1,16 @@
 package net.roy.prototypes.pe.ui;
 
+import net.roy.prototypes.pe.domain.Department;
+import net.roy.prototypes.pe.domain.DepartmentManager;
 import net.roy.prototypes.pe.domain.Privilege;
 import net.roy.prototypes.pe.domain.PrivilegeManager;
 import net.roy.prototypes.pe.ui.model.PrivilegesTableModel;
+import net.roy.tools.SwingTools;
 
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.List;
 
 /**
  * Created by Roy on 2015/12/24.
@@ -18,21 +20,25 @@ public class PrivilegeManageForm {
     private JPanel mainPanel;
     private JTable tblPrivileges;
     private JTabbedPane privilegeInfoPane;
-    private JTextField txtPrivilegeName;
-    private JTextField txtDepartment;
-    private JList lstJobs;
-    private JList lstUsers;
     private JToolBar toolBar;
     private JSplitPane splitPane;
+    private JButton btnUpdatePriviligeInfo;
+    private PrivilegeInfoForm privilegeInfoForm;
     private AddPrivilegeForm addPrivilegeForm;
 
-    public PrivilegeManageForm(PrivilegeManager privilegeManager) {
+    private PrivilegesTableModel tblPrivilegesModel;
+
+    public PrivilegeManageForm(PrivilegeManager privilegeManager,DepartmentManager departmentManager) {
         this.privilegeManager = privilegeManager;
 
-        this.addPrivilegeForm = new AddPrivilegeForm(this);
+        this.addPrivilegeForm = new AddPrivilegeForm(this,departmentManager);
 
-        tblPrivileges.setModel(new PrivilegesTableModel(privilegeManager));
+        privilegeInfoForm.init(privilegeManager,departmentManager,false);
 
+        btnUpdatePriviligeInfo.addActionListener(this::onUpdatePrivilegeInfo);
+
+        tblPrivilegesModel=new PrivilegesTableModel(privilegeManager);
+        tblPrivileges.setModel(tblPrivilegesModel);
         tblPrivileges.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         final Action addAction = new AbstractAction("添加", new ImageIcon(this.getClass().getResource("/icons/Add.png"))) {
@@ -50,24 +56,36 @@ public class PrivilegeManageForm {
             @Override
             public void actionPerformed(ActionEvent e) {
                 int index=tblPrivileges.getSelectedRow();
-                PrivilegesTableModel privilegesTableModel=(PrivilegesTableModel)tblPrivileges.getModel();
-                privilegesTableModel.removePrivilegAt(index);
+                tblPrivilegesModel.removePrivilegAt(index);
             }
         };
         removeAction.setEnabled(false);
         toolBar.add(removeAction);
 
 
-        tblPrivileges.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                if (tblPrivileges.getSelectedRowCount() > 0) {
-                    removeAction.setEnabled(true);
-                } else {
-                    removeAction.setEnabled(false);
-                }
+        tblPrivileges.getSelectionModel().addListSelectionListener(e -> {
+            removeAction.setEnabled(tblPrivileges.getSelectedRowCount() > 0);
+            setInfoPaneEnable(tblPrivileges.getSelectedRowCount() > 0);
+            if (tblPrivileges.getSelectedRowCount()>0) {
+                privilegeInfoForm.setCurrentPrivilege(tblPrivilegesModel.getPrivilegeAt(tblPrivileges.getSelectedRow()));
+            } else {
+                privilegeInfoForm.setCurrentPrivilege(null);
             }
         });
+    }
+
+    private void setInfoPaneEnable(boolean enabled) {
+        privilegeInfoPane.setEnabled(enabled);
+        privilegeInfoForm.setEnabled(enabled);
+    }
+
+    private void onUpdatePrivilegeInfo(ActionEvent actionEvent) {
+        Privilege privilege=privilegeInfoForm.getPrivilegeForUpdate();
+        privilegeManager.update(privilegeInfoForm.getPrivilegeForUpdate());
+        privilegeManager.updateDepartmentsHavingPrivilege(privilege, privilegeInfoForm.getDepartmentList());
+        for (int i=0;i<tblPrivilegesModel.getColumnCount();i++) {
+            tblPrivilegesModel.fireTableCellUpdated(tblPrivileges.getSelectedRow(), i);
+        }
     }
 
     public Container getPanel() {
@@ -78,16 +96,20 @@ public class PrivilegeManageForm {
         //NOTE: 需要在切换到前台后刷新内容的代码放这里
     }
 
-    public void createPrivilege(Privilege privilege) {
-        PrivilegesTableModel model = (PrivilegesTableModel) tblPrivileges.getModel();
-        model.createPrivilege(privilege);
-        tblPrivileges.setEnabled(true);
-        splitPane.setRightComponent(privilegeInfoPane);
-        splitPane.setVisible(true);
-    }
-
     private void createUIComponents() {
         // TODO: place custom component creation code here
     }
 
+    public void createPrivilege(Privilege privilege, List<Department> departmentList) {
+        privilegeManager.create(privilege);
+        privilegeManager.setDepartmentsHavingPrivilege(privilege,departmentList);
+        tblPrivilegesModel.addPrivilege(privilege);
+        closeAddPrivilegeForm();
+    }
+
+    public void closeAddPrivilegeForm() {
+        tblPrivileges.setEnabled(true);
+        splitPane.setRightComponent(privilegeInfoPane);
+        splitPane.setVisible(true);
+    }
 }

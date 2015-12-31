@@ -11,17 +11,13 @@ import java.util.List;
  * Created by Roy on 2015/12/28.
  */
 public class UserTableModel extends AbstractTableModel {
-    private UserManager userManager;
     private List<User> userList= Collections.emptyList();
 
-    public UserTableModel(UserManager userManager) {
-        this.userManager = userManager;
-        reload();
+    public UserTableModel() {
     }
 
-    public void reload() {
-        int oldSize=userList.size();
-        userList=userManager.listUsers();
+    public void setUserList(List<User> newUserList) {
+        userList=newUserList;
         fireTableDataChanged();
     }
 
@@ -77,5 +73,15 @@ public class UserTableModel extends AbstractTableModel {
      */
     public User getUserAt(int index) {
         return userList.get(index);
+    }
+
+    public void addUser(User newUser) {
+        userList.add(newUser);
+        fireTableRowsInserted(userList.size()-1,userList.size()-1);
+    }
+
+    public void removeAt(int index) {
+        userList.remove(index);
+        fireTableRowsDeleted(index,index);
     }
 }

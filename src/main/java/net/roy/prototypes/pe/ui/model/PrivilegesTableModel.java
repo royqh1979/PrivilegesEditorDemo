@@ -68,8 +68,7 @@ public class PrivilegesTableModel extends AbstractTableModel {
         return "";
     }
 
-    public void createPrivilege(Privilege privilege) {
-        privilegeManager.create(privilege);
+    public void addPrivilege(Privilege privilege) {
         privilegeList.add(privilege);
         fireTableRowsInserted(privilegeList.size()-1,privilegeList.size()-1);
     }
@@ -81,5 +80,9 @@ public class PrivilegesTableModel extends AbstractTableModel {
         privilegeManager.removePrivilege(privilege);
         privilegeList.remove(privilege);
         fireTableRowsDeleted(index,index);
+    }
+
+    public Privilege getPrivilegeAt(int row) {
+        return privilegeList.get(row);
     }
 }

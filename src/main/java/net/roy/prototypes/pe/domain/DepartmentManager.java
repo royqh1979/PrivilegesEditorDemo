@@ -130,4 +130,8 @@ public class DepartmentManager {
     public List<Department> listChilds(Department department) {
         return departmentPersister.listChilds(department);
     }
+
+    public List<User> listUsersInDepartment(Department department) {
+        return userPersister.listUsersInDepartment(department);
+    }
 }

@@ -4,8 +4,6 @@ import net.roy.prototypes.pe.domain.Department;
 import net.roy.prototypes.pe.domain.DepartmentManager;
 import net.roy.prototypes.pe.domain.User;
 import net.roy.prototypes.pe.domain.UserManager;
-import net.roy.prototypes.pe.ui.model.DepartmentListModel;
-import net.roy.prototypes.pe.ui.model.OrganizationTreeListModel;
 import net.roy.prototypes.pe.ui.model.UserTableModel;
 
 import javax.swing.*;
@@ -22,48 +20,24 @@ public class UserManageForm {
     private JPanel mainPanel;
     private JTable tblUser;
     private JTabbedPane pnlUserInfo;
+    private JPanel pnlBasicUserInfo;
     private JToolBar toolBar;
     private JSplitPane splitPane;
-    private JCheckBox cbEnabled;
-    private JComboBox cbDepartment;
-    private JTextField txtAccount;
-    private JTextField txtUsername;
-    private JTextField txtIdCardNo;
-    private JList lstDepartments;
-    private JButton btnAddDepartment;
-    private JPanel pnlBasicUserInfo;
-    private JButton btnRemoveDepartment;
+    private UserInfoForm userInfoForm;
+    private JButton btnUpdateUserInfo;
     private AddUserForm addUserForm;
 
     private UserManager userManager;
+    private UserTableModel tblUserModel;
 
     public UserManageForm(UserManager userManager, DepartmentManager departmentManager) {
         this.userManager = userManager;
-        tblUser.setModel(new UserTableModel(userManager));
+        tblUserModel=new UserTableModel();
+        tblUserModel.setUserList(userManager.listUsers());
+        tblUser.setModel(tblUserModel);
         tblUser.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        cbDepartment.setModel(new OrganizationTreeListModel(departmentManager));
-        cbDepartment.addActionListener(e->{
-            System.out.println("oooo");
-            if (cbDepartment.getSelectedItem()==null) {
-                btnAddDepartment.setEnabled(false);
-            } else {
-                DepartmentListModel departmentListModel = (DepartmentListModel) lstDepartments.getModel();
-                List<Department> departmentList = departmentListModel.getDepartmentList();
-                Department department=(Department)cbDepartment.getSelectedItem();
-                if (departmentList.stream().anyMatch(dept -> dept.getId() == department.getId())) {
-                    btnAddDepartment.setEnabled(false);
-                } else {
-                    btnAddDepartment.setEnabled(true);
-                }
-            }
-        });
-        lstDepartments.setModel(new DepartmentListModel());
-        lstDepartments.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        lstDepartments.addListSelectionListener(e -> {
-            btnRemoveDepartment.setEnabled(lstDepartments.getSelectedIndex()>=0);
-        });
-
+        userInfoForm.init(departmentManager, userManager, false);
         this.addUserForm = new AddUserForm(this, departmentManager);
         final Action addAction = new AbstractAction("添加", new ImageIcon(this.getClass().getResource("/icons/Add.png"))) {
             @Override
@@ -82,7 +56,7 @@ public class UserManageForm {
             public void actionPerformed(ActionEvent e) {
                 UserTableModel userTableModel = (UserTableModel) tblUser.getModel();
                 userManager.removeUser(userTableModel.getUserAt(tblUser.getSelectedRow()));
-                userTableModel.reload();
+                userTableModel.removeAt(tblUser.getSelectedRow());
                 tblUser.clearSelection();
             }
         };
@@ -90,91 +64,32 @@ public class UserManageForm {
         toolBar.add(removeAction);
         setUserInfoPanelEnabled(false);
 
-        tblUser.getSelectionModel().addListSelectionListener(
-                e -> {
-                    removeAction.setEnabled(tblUser.getSelectedRowCount() > 0);
-                    setUserInfoPanelEnabled(tblUser.getSelectedRowCount() > 0) ;
-                    if (tblUser.getSelectedRowCount() > 0) {
-                        loadCurrentUserInfo();
-                    } else {
-                        clearUserInfoPane();
-                    }
-                });
-        txtAccount.addActionListener(this::userInfoChanged);
-        txtUsername.addActionListener(this::userInfoChanged);
-        txtIdCardNo.addActionListener(this::userInfoChanged);
-        cbEnabled.addActionListener(this::userInfoChanged);
-        btnAddDepartment.addActionListener(e -> {
-            Department department=(Department)cbDepartment.getSelectedItem();
-            User user = getCurrentSelectionInTblUser();
-            userManager.addUserDepartment(user,department);
-            addDepartmentToLstDepartment(department);
-
+        tblUser.getSelectionModel().addListSelectionListener(e -> {
+            removeAction.setEnabled(tblUser.getSelectedRowCount() > 0);
+            setUserInfoPanelEnabled(tblUser.getSelectedRowCount() > 0);
+            if (tblUser.getSelectedRowCount() > 0) {
+                userInfoForm.setCurrentUser(getCurrentSelectionInTblUser());
+            } else {
+                userInfoForm.setCurrentUser(null);
+            }
         });
 
-        btnRemoveDepartment.addActionListener(e->{
-            Department department = getCurrentSelectionInLstDepartment();
-            User user = getCurrentSelectionInTblUser();
-            userManager.removeUserDepartment(user,department);
-            removeDepartmentFromLstDepartment(department);
-        });
+        btnUpdateUserInfo.addActionListener(this::onUpdateUserInfo);
     }
 
-    private void clearUserInfoPane() {
-        txtAccount.setText("");
-        txtUsername.setText("");
-        txtIdCardNo.setText("");
-        cbEnabled.setSelected(true);
-        cbDepartment.setSelectedItem(null);
-        DepartmentListModel departmentListModel=(DepartmentListModel)lstDepartments.getModel();
-        departmentListModel.clear();
-    }
-
-    private void removeDepartmentFromLstDepartment(Department department) {
-        DepartmentListModel departmentListModel=(DepartmentListModel)lstDepartments.getModel();
-        departmentListModel.removeAt(lstDepartments.getSelectedIndex());
-    }
-
-    private void addDepartmentToLstDepartment(Department department) {
-        DepartmentListModel departmentListModel=(DepartmentListModel)lstDepartments.getModel();
-        OrganizationTreeListModel organizationTreeListModel=(OrganizationTreeListModel)cbDepartment.getModel();
-        departmentListModel.add(department,organizationTreeListModel.getDepartmentFullPath(department));
+    private void onUpdateUserInfo(ActionEvent actionEvent) {
+        User user=userInfoForm.getUserForUpdate();
+        userManager.update(user);
+        userManager.updateDepartments(user,userInfoForm.getDepartmentList());
+        UserTableModel userTableModel=(UserTableModel)tblUser.getModel();
+        for (int i=0;i<userTableModel.getColumnCount();i++) {
+            userTableModel.fireTableCellUpdated(tblUser.getSelectedRow(),i);
+        }
     }
 
     private User getCurrentSelectionInTblUser() {
         UserTableModel userTableModel=(UserTableModel)tblUser.getModel();
         return userTableModel.getUserAt(tblUser.getSelectedRow());
-    }
-
-    /**
-     * 获取lstDepartment中当前选中的部门
-     * @return
-     */
-    private Department getCurrentSelectionInLstDepartment() {
-        DepartmentListModel departmentListModel=(DepartmentListModel)lstDepartments.getModel();
-        return departmentListModel.getDepartmentList().get(lstDepartments.getSelectedIndex());
-    }
-
-    private void loadCurrentUserInfo() {
-        User user = getCurrentSelectionInTblUser();
-        if (user==null)
-            return ;
-        txtUsername.setText(user.getName());
-        txtAccount.setText(user.getAccount());
-        txtIdCardNo.setText(user.getIdCardNo());
-        cbEnabled.setSelected(user.isEnabled());
-
-        DepartmentListModel departmentListModel=(DepartmentListModel)lstDepartments.getModel();
-        departmentListModel.clear();
-
-        List<Department> departmentList=userManager.listUserDepartments(user);
-        departmentList.stream().forEach(department -> {
-            addDepartmentToLstDepartment(department);
-        });
-    }
-
-    private void userInfoChanged(ActionEvent actionEvent) {
-
     }
 
     public Container getPanel() {
@@ -185,18 +100,28 @@ public class UserManageForm {
         //TODO: 需要在界面切换时刷新内容的处理放这里
     }
 
-    public void createUser(String account, String username, String IdCardNo, List<Department> departmentList, boolean enabled) {
-        userManager.createUser(account,username,IdCardNo,enabled,departmentList);
-        splitPane.setRightComponent(pnlUserInfo);
-        splitPane.setVisible(true);
-        tblUser.setEnabled(true);
-        UserTableModel userTableModel=(UserTableModel)tblUser.getModel();
-        userTableModel.reload();
-    }
 
     public void setUserInfoPanelEnabled(boolean enabled) {
         setChildComponentEnabled(pnlBasicUserInfo, enabled);
+        userInfoForm.setEnabled(enabled);
+        btnUpdateUserInfo.setEnabled(enabled);
     }
 
 
+    public void createUser(User user, List<Department> departmentList) {
+        User newUser=userManager.createUser(
+                user.getAccount(),
+                user.getName(),
+                user.getIdCardNo(),
+                user.isEnabled(), departmentList);
+        UserTableModel userTableModel=(UserTableModel)tblUser.getModel();
+        userTableModel.addUser(newUser);
+        closeAddUserForm();
+    }
+
+    public void closeAddUserForm() {
+        splitPane.setRightComponent(pnlUserInfo);
+        splitPane.setVisible(true);
+        tblUser.setEnabled(true);
+    }
 }

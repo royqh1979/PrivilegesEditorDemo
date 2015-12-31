@@ -89,7 +89,7 @@ public class MainFrame extends JFrame {
 
     private void switchPrivilegeManageForm() {
         if (privilegeManageForm==null) {
-            privilegeManageForm=new PrivilegeManageForm(privilegeManager);
+            privilegeManageForm=new PrivilegeManageForm(privilegeManager,departmentManager);
         }
         setContentPane(privilegeManageForm.getPanel());
         privilegeManageForm.reload();
@@ -167,6 +167,7 @@ public class MainFrame extends JFrame {
         userPersister.setTranscationManager(transactionManager);
         PrivilegePersister privilegePersister=new PrivilegePersister();
         privilegePersister.setTemplate(template);
+        privilegePersister.setTransactionManager(transactionManager);
         departmentManager.setDepartmentPersister(departmentPersister);
         departmentManager.setJobPersister(jobPersister);
         departmentManager.setPrivilegePersister(privilegePersister);

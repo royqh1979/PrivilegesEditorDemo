@@ -6,6 +6,7 @@ import net.roy.prototypes.pe.domain.Privilege;
 import net.roy.prototypes.pe.ui.model.DepartmentJobListModel;
 import net.roy.prototypes.pe.ui.model.OrganizationTreeModel;
 import net.roy.prototypes.pe.ui.model.PrivilegeListModel;
+import net.roy.prototypes.pe.ui.model.UserTableModel;
 
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
@@ -40,6 +41,9 @@ public class DepartmentManageForm {
     private JList lstNonDepartmentPrivileges;
     private JButton btnAddPrivilege;
     private JButton btnRemovePrivilege;
+    private JTable tblUsers;
+
+    private UserTableModel tblUsersModel;
 
     private DepartmentManager departmentManager;
     private JPopupMenu popupMenu;
@@ -88,17 +92,14 @@ public class DepartmentManageForm {
         lstNonDepartmentPrivileges.addListSelectionListener(e -> {
             btnAddPrivilege.setEnabled(!lstNonDepartmentPrivileges.isSelectionEmpty());
         });
-        btnAddPrivilege.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Department department = (Department) (organizationTree.getSelectionPath().getLastPathComponent());
-                List<Privilege> lst = lstNonDepartmentPrivileges.getSelectedValuesList();
-                departmentManager.assignPrivilegeTo(department, lst);
-                PrivilegeListModel deptPrivilegeListModel = (PrivilegeListModel) lstDepartmentPrivileges.getModel();
-                PrivilegeListModel nonDeptPrivilegeListModel = (PrivilegeListModel) lstNonDepartmentPrivileges.getModel();
-                deptPrivilegeListModel.setPrivilegeList(departmentManager.listDepartmentPrivileges(department));
-                nonDeptPrivilegeListModel.setPrivilegeList(departmentManager.listPrivilegesNotBelongTo(department));
-            }
+        btnAddPrivilege.addActionListener(e -> {
+            Department department = (Department) (organizationTree.getSelectionPath().getLastPathComponent());
+            List<Privilege> lst = lstNonDepartmentPrivileges.getSelectedValuesList();
+            departmentManager.assignPrivilegeTo(department, lst);
+            PrivilegeListModel deptPrivilegeListModel = (PrivilegeListModel) lstDepartmentPrivileges.getModel();
+            PrivilegeListModel nonDeptPrivilegeListModel = (PrivilegeListModel) lstNonDepartmentPrivileges.getModel();
+            deptPrivilegeListModel.setPrivilegeList(departmentManager.listDepartmentPrivileges(department));
+            nonDeptPrivilegeListModel.setPrivilegeList(departmentManager.listPrivilegesNotBelongTo(department));
         });
         lstDepartmentPrivileges.addFocusListener(new FocusAdapter() {
             @Override
@@ -112,6 +113,9 @@ public class DepartmentManageForm {
                 lstNonDepartmentPrivileges.clearSelection();
             }
         });
+
+        tblUsersModel=new UserTableModel();
+        tblUsers.setModel(tblUsersModel);
     }
 
     private void initPopupMenu() {
@@ -138,22 +142,19 @@ public class DepartmentManageForm {
         organizationTreeToolbar.add(deleteAction);
         popupMenu.add(deleteAction);
         organizationTree.setComponentPopupMenu(popupMenu);
-        organizationTree.addTreeSelectionListener(new TreeSelectionListener() {
-            @Override
-            public void valueChanged(TreeSelectionEvent e) {
-                if (organizationTree.getSelectionCount() == 0) {
-                    addAction.setEnabled(false);
-                    deleteAction.setEnabled(false);
-                    btnAddJob.setEnabled(false);
-                    loadDepartmentInfo(null);
-                } else {
-                    addAction.setEnabled(true);
-                    deleteAction.setEnabled(true);
-                    btnAddJob.setEnabled(true);
+        organizationTree.addTreeSelectionListener(e -> {
+            if (organizationTree.getSelectionCount() == 0) {
+                addAction.setEnabled(false);
+                deleteAction.setEnabled(false);
+                btnAddJob.setEnabled(false);
+                loadDepartmentInfo(null);
+            } else {
+                addAction.setEnabled(true);
+                deleteAction.setEnabled(true);
+                btnAddJob.setEnabled(true);
 
-                    Department department = (Department) (organizationTree.getSelectionPath().getLastPathComponent());
-                    loadDepartmentInfo(department);
-                }
+                Department department = (Department) (organizationTree.getSelectionPath().getLastPathComponent());
+                loadDepartmentInfo(department);
             }
         });
     }
@@ -168,9 +169,11 @@ public class DepartmentManageForm {
         if (department==null) {
             deptPrivilegeListModel.setPrivilegeList(Collections.emptyList());
             nonDeptPrivilegeListModel.setPrivilegeList(Collections.emptyList());
+            tblUsersModel.setUserList(Collections.emptyList());
         }  else {
             deptPrivilegeListModel.setPrivilegeList(departmentManager.listDepartmentPrivileges(department));
             nonDeptPrivilegeListModel.setPrivilegeList(departmentManager.listPrivilegesNotBelongTo(department));
+            tblUsersModel.setUserList(departmentManager.listUsersInDepartment(department));
         }
     }
 

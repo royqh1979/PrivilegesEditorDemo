@@ -58,4 +58,8 @@ public class DepartmentListModel extends AbstractListModel<String> {
         departmentFullPathList.remove(i);
         fireIntervalRemoved(this,i,i);
     }
+
+    public boolean isDepartmentInList(Department department) {
+        return departmentList.stream().anyMatch(dept->department.getId()==dept.getId());
+    }
 }

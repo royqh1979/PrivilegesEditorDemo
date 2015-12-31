@@ -6,12 +6,13 @@ import net.roy.prototypes.pe.ui.model.OrganizationTreeListModel;
 import org.springframework.util.StringUtils;
 
 import javax.swing.*;
+import javax.swing.plaf.UIResource;
 import java.awt.*;
 
 /**
  * Created by Roy on 2015/12/27.
  */
-public class OrganizationTreeListRender extends JLabel implements ListCellRenderer<Department> {
+public class OrganizationTreeListRenderer extends JLabel implements ListCellRenderer<Department> {
     @Override
     public Component getListCellRendererComponent(JList<? extends Department> list, Department value, int index, boolean isSelected, boolean cellHasFocus) {
         if (value==null) {
@@ -29,4 +30,6 @@ public class OrganizationTreeListRender extends JLabel implements ListCellRender
         }
         return this;
     }
+
+    public static final OrganizationTreeListRenderer UIResource=new OrganizationTreeListRenderer();
 }

@@ -5,10 +5,13 @@ import net.roy.prototypes.pe.domain.Privilege;
 import org.springframework.jdbc.core.*;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -17,19 +20,20 @@ import java.util.List;
  */
 public class PrivilegePersister {
     private JdbcTemplate template;
-    public static final RowMapper<Privilege> privilegeRowMapper =new RowMapper<Privilege>() {
-        @Override
-        public Privilege mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new Privilege(rs.getLong("id"),
-                    rs.getString("name"),
-                    rs.getString("process_name"),
-                    rs.getString("task_name"),
-                    rs.getString("note"));
-        }
-    };
+    private PlatformTransactionManager transactionManager;
+
+    public static final RowMapper<Privilege> PRIVILEGE_ROW_MAPPER = (rs, rowNum) -> new Privilege(rs.getLong("id"),
+            rs.getString("name"),
+            rs.getString("process_name"),
+            rs.getString("task_name"),
+            rs.getString("note"));
 
     public void setTemplate(JdbcTemplate template) {
         this.template = template;
+    }
+
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
     }
 
     public void create(Privilege privilege) {
@@ -49,7 +53,7 @@ public class PrivilegePersister {
         privilege.setId(keyHolder.getKey().longValue());
     }
 
-    void update(Privilege privilege) {
+    public void update(Privilege privilege) {
         template.update("update privilege set name=?,process_name=?,task_name=?,note=? where id=?",
                 ps -> {
                     ps.setString(1, privilege.getName());
@@ -81,7 +85,7 @@ public class PrivilegePersister {
                 ps->{
                     ps.setLong(1,department.getId());
                 },
-                privilegeRowMapper);
+                PRIVILEGE_ROW_MAPPER);
     }
 
     public List<Privilege> listPrivilegesNotBelongToDepartment(Department department) {
@@ -89,17 +93,27 @@ public class PrivilegePersister {
                 ps->{
                     ps.setLong(1,department.getId());
                 },
-                privilegeRowMapper);
+                PRIVILEGE_ROW_MAPPER);
     }
 
     public List<Privilege> listPrivileges() {
-        return template.query("select * from privilege order by id",privilegeRowMapper);
+        return template.query("select * from privilege order by id", PRIVILEGE_ROW_MAPPER);
     }
 
     public void remove(Privilege privilege) {
-        template.update("delete from privilege where id=?", ps -> {
-            ps.setLong(1, privilege.getId());
-        });
+        TransactionDefinition definition=new DefaultTransactionDefinition();
+        TransactionStatus status=transactionManager.getTransaction(definition);
+        try {
+            template.update("delete from department_privilege where privilege_id=?",ps->{
+                ps.setLong(1,privilege.getId());
+            });
+            template.update("delete from privilege where id=?", ps -> {
+                ps.setLong(1, privilege.getId());
+            });
+            transactionManager.commit(status);
+        } catch (RuntimeException e) {
+            transactionManager.rollback(status);
+        }
     }
 
     public void assginPrivilegeToDepartment(Department department, List<Privilege> privilegeList) {
@@ -116,6 +130,43 @@ public class PrivilegePersister {
                     ps.setLong(1,dept.getId());
                 },rss->{
                     return rss.getInt(1);
+                });
+    }
+
+    public List<Department> listDepartmentsHavingPrivilege(Privilege privilege) {
+        return template.query("select A.* from Department A join department_privilege B on A.id = B.department_id where B.privilege_id=? ",ps->{
+            ps.setLong(1, privilege.getId());
+        },DepartmentPersister.DEPARTMENT_ROW_MAPPER);
+    }
+
+    public void updateDepartmentsHavingPrivilege(Privilege privilege, List<Department> departmentList) {
+        TransactionDefinition definition=new DefaultTransactionDefinition();
+        TransactionStatus status=transactionManager.getTransaction(definition);
+        try {
+            template.update("delete from department_privilege where privilege_id=?",ps->{
+                ps.setLong(1,privilege.getId());
+            });
+            saveDepartmentsHavingPrivilege(privilege,departmentList);
+            transactionManager.commit(status);
+        } catch (RuntimeException e) {
+            transactionManager.rollback(status);
+            throw e;
+        }
+    }
+
+    public void saveDepartmentsHavingPrivilege(Privilege privilege, List<Department> departmentList) {
+        template.batchUpdate("insert into department_privilege(privilege_id,department_id) values (?,?)",
+                new BatchPreparedStatementSetter() {
+                    @Override
+                    public void setValues(PreparedStatement ps, int i) throws SQLException {
+                        ps.setLong(1,privilege.getId());
+                        ps.setLong(2,departmentList.get(i).getId());
+                    }
+
+                    @Override
+                    public int getBatchSize() {
+                        return departmentList.size();
+                    }
                 });
     }
 }

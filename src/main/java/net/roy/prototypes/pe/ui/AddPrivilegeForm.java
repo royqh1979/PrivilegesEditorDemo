@@ -1,47 +1,44 @@
 package net.roy.prototypes.pe.ui;
 
-import net.roy.prototypes.pe.domain.Privilege;
-import org.springframework.util.StringUtils;
+import net.roy.prototypes.pe.domain.DepartmentManager;
 
 import javax.swing.*;
-import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 /**
  * Created by Roy on 2015/12/25.
  */
 public class AddPrivilegeForm {
-    private JTextField txtName;
-    private JTextArea txtNote;
     private JButton btnAdd;
-    private JTextField txtProcessName;
-    private JTextField txtTaskName;
     private JPanel mainPanel;
+    private PrivilegeInfoForm privilegeInfoForm;
+    private JButton btnCancel;
 
     private PrivilegeManageForm privilegeManageForm;
 
-    public AddPrivilegeForm(PrivilegeManageForm privilegeManageForm) {
+    public AddPrivilegeForm(PrivilegeManageForm privilegeManageForm,DepartmentManager departmentManager) {
         this.privilegeManageForm = privilegeManageForm;
 
-        btnAdd.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (StringUtils.isEmpty(txtName.getText()) )
-                    return ;
-                Privilege privilege = new Privilege(0, txtName.getText(),
-                        txtProcessName.getText(), txtTaskName.getText(), txtNote.getText());
-                privilegeManageForm.createPrivilege(privilege);
-                clear();
-            }
-        });
+        privilegeInfoForm.init(null,departmentManager,true);
+
+        btnAdd.addActionListener(this::onAdd);
+        btnCancel.addActionListener(this::onCancel);
+    }
+
+    private void onCancel(ActionEvent actionEvent) {
+        clear();
+        privilegeManageForm.closeAddPrivilegeForm();
+    }
+
+    private void onAdd(ActionEvent actionEvent) {
+        privilegeManageForm.createPrivilege(
+                privilegeInfoForm.getPrivilegeForAdd(),
+                privilegeInfoForm.getDepartmentList());
+        clear();
     }
 
     private void clear() {
-        txtName.setText("");
-        txtProcessName.setText("");
-        txtTaskName.setText("");
-        txtNote.setText("");
+        privilegeInfoForm.clear();
     }
 
     public JPanel getPanel() {

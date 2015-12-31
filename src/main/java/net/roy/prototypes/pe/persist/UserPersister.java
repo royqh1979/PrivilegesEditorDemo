@@ -5,16 +5,13 @@ import net.roy.prototypes.pe.domain.Privilege;
 import net.roy.prototypes.pe.domain.User;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.sql.*;
 import java.util.List;
@@ -25,7 +22,7 @@ import java.util.List;
 public class UserPersister {
     private JdbcTemplate template;
     private PlatformTransactionManager transcationManager;
-    public static final RowMapper<User> userRowMapper=(rs, rowNum) -> {
+    public static final RowMapper<User> USER_ROW_MAPPER =(rs, rowNum) -> {
         return new User(rs.getLong("id"),
                 rs.getString("account"),
                 rs.getString("name"),
@@ -45,7 +42,7 @@ public class UserPersister {
     }
 
     public List<User> listUsers() {
-        return template.query("select * from user order by id", userRowMapper);
+        return template.query("select * from user order by id", USER_ROW_MAPPER);
     }
 
     public void create(User user, List<Department> departmentList){
@@ -78,10 +75,6 @@ public class UserPersister {
     }
 
     private void setUserDepartments(User user, List<Department> departmentList) {
-        template.update("delete from department_user where user_id=?",
-                ps->{
-                   ps.setLong(1,user.getId());
-                });
         template.batchUpdate("insert into department_user(department_id,user_id) values (?, ?)"
                 , new BatchPreparedStatementSetter() {
             @Override
@@ -150,7 +143,7 @@ public class UserPersister {
     public List<Department> listUserDepartments(User user) {
         return template.query("select A.* from department A join department_user B on A.id = B.department_id where B.user_id=?",ps->{
             ps.setLong(1,user.getId());
-        },DepartmentPersister.departmentRowMapper);
+        },DepartmentPersister.DEPARTMENT_ROW_MAPPER);
     }
 
     public void addUserDepartment(User user, Department department) {
@@ -166,5 +159,39 @@ public class UserPersister {
                     ps.setLong(1,department.getId());
                     ps.setLong(2,user.getId());
                 });
+    }
+
+    public void update(User user) {
+        template.update("update user set account=?,name=?,id_card_no=?,enabled=? where id=?",
+                ps->{
+                    ps.setString(1, user.getAccount());
+                    ps.setString(2, user.getName());
+                    ps.setString(3, user.getIdCardNo());
+                    ps.setBoolean(4, user.isEnabled());
+                    ps.setLong(5,user.getId());
+                });
+    }
+
+    public void updateDepartments(User user, List<Department> departmentList) {
+        TransactionDefinition definition=new DefaultTransactionDefinition();
+        TransactionStatus status=transcationManager.getTransaction(definition);
+
+        try {
+            template.update("delete from department_user where user_id=?",ps->{
+                ps.setLong(1,user.getId());
+            });
+            setUserDepartments(user, departmentList);
+            transcationManager.commit(status);
+        } catch (RuntimeException e) {
+            transcationManager.rollback(status);
+            throw e;
+        }
+    }
+
+    public List<User> listUsersInDepartment(Department department) {
+        return template.query("select A.* from user A join department_user B on A.id = B.user_id where B.department_id=?",
+                ps->{
+                    ps.setLong(1,department.getId());
+                },USER_ROW_MAPPER);
     }
 }

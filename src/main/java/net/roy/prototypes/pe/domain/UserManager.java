@@ -24,9 +24,10 @@ public class UserManager {
         return userPersister.listUsers();
     }
 
-    public void createUser(String account, String username, String idCardNo, boolean enabled, List<Department> departmentList ) {
+    public User createUser(String account, String username, String idCardNo, boolean enabled, List<Department> departmentList) {
         User user = new User(0, account, username, idCardNo, "", "", enabled);
         userPersister.create(user, departmentList);
+        return user;
     }
 
     public void removeUser(User user) {
@@ -37,11 +38,12 @@ public class UserManager {
         return userPersister.listUserDepartments(user);
     }
 
-    public void addUserDepartment(User user, Department department) {
-        userPersister.addUserDepartment(user,department);
+    public void update(User user) {
+        userPersister.update(user);
     }
 
-    public void removeUserDepartment(User user, Department department) {
-        userPersister.removeUserDepartment(user,department);
+
+    public void updateDepartments(User user, List<Department> departmentList) {
+        userPersister.updateDepartments(user,departmentList);
     }
 }

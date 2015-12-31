@@ -1,10 +1,7 @@
 package net.roy.prototypes.pe.persist;
 
 import net.roy.prototypes.pe.domain.Department;
-import net.roy.prototypes.pe.domain.Privilege;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -17,7 +14,7 @@ import java.util.List;
  */
 public class DepartmentPersister {
     private JdbcTemplate template;
-    public static final RowMapper<Department> departmentRowMapper=new RowMapper<Department>() {
+    public static final RowMapper<Department> DEPARTMENT_ROW_MAPPER =new RowMapper<Department>() {
         @Override
         public Department mapRow(ResultSet rs, int rowNum) throws SQLException {
             Department department=new Department(
@@ -67,12 +64,12 @@ public class DepartmentPersister {
 
     public List<Department> listDepartments() {
         return template.query("select * from department",
-                departmentRowMapper);
+                DEPARTMENT_ROW_MAPPER);
     }
 
     public Department loadRoot() {
         return template.queryForObject("select * from department where is_root=1 limit 1",
-                departmentRowMapper);
+                DEPARTMENT_ROW_MAPPER);
     }
 
     public List<Department> listChilds(Department department) {
@@ -80,7 +77,7 @@ public class DepartmentPersister {
                 ps -> {
                     ps.setLong(1, department.getId());
                 },
-                departmentRowMapper);
+                DEPARTMENT_ROW_MAPPER);
     }
 
     public int countChilds(Department department) {
